@@ -21,6 +21,9 @@ python3 http_client.py
 ```
 
 # FYI
+
+HTTP has evolved through versions HTTP/0.9 (1991), HTTP/1.0 (1996), HTTP/1.1 (1997), HTTP/2 (2015), and HTTP/3 (2022), each enhancing speed, efficiency, and security.
+
 | #  | Method    | Supported HTTP Versions | Description                          |
 |----|-----------|-------------------------|--------------------------------------|
 | 1  | GET       | HTTP/1.0, 1.1, 2, 3     | Fetch resource data |
