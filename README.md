@@ -19,3 +19,16 @@ python3 http_proxy.py --port 8080
 # start a http proxy request
 python3 http_client.py
 ```
+
+# FYI
+| #  | Method    | Supported HTTP Versions | Description                          |
+|----|-----------|-------------------------|--------------------------------------|
+| 1  | GET       | HTTP/1.0, 1.1, 2, 3     | Fetch resource data |
+| 2  | POST      | HTTP/1.0, 1.1, 2, 3     | Submit data to process/create|
+| 3  | PUT       | HTTP/1.1, 2, 3          | Replace/recreate target resource|
+| 4  | DELETE    | HTTP/1.1, 2, 3          | Remove the target resource |
+| 5  | HEAD      | HTTP/1.0, 1.1, 2, 3     | Fetch resource headers only|
+| 6  | OPTIONS   | HTTP/1.1, 2, 3          | List allowed methods for resource|
+| 7  | CONNECT   | HTTP/1.1, 2, 3          | Establish a network tunnel  |
+| 8  | TRACE     | HTTP/1.1, 2, 3          | Echo received request         |
+| 9  | PATCH     | HTTP/1.1, 2, 3          | Apply partial resource modifications|
