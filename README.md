@@ -10,6 +10,8 @@ Pyproxy is a proxy written in Python for rapid deployment and secondary developm
 
 # add '0.0.0.0 a.b.c' to /etc/hosts
 
+cd ./http/
+
 # start http server
 python3 http_server.py --port 8090
 
@@ -18,6 +20,21 @@ python3 http_proxy.py --port 8080
 
 # start a http proxy request
 python3 http_client.py
+```
+
+# HTTPS
+
+```shell
+export HOST=x.x.x.x
+
+# machine A
+ssh root@${HOST} # login proxy machine
+cd ./https/
+python3 https_proxy.py
+
+# machine B
+export PORT=9000
+curl -v -x http://${HOST}:${PORT} https://github.com
 ```
 
 # FYI
