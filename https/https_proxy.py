@@ -47,10 +47,8 @@ class ProxyServer:
             else:
                 self.handle_http(client_sock, request)
         except Exception as e:
-            print(f"parse http/https request: {e}")
-        finally:
-            print('close client socket')
-            client_sock.close()
+            print(f"handle_client: parse http/https request: {e}")
+
         return
     
     def get_host_port(self, req, is_https:bool = False):
@@ -149,7 +147,7 @@ class ProxyServer:
                 try:
                     data = src_sock.recv(4096) # recv data from src_sock
                     if len(data) == 0:
-                        raise Exception("forward: close connection")
+                        raise Exception(f"forward: len(data) = {len(data)}, close connection")
                     dst_sock.send(data) # send data to dst_sock
                 except socket.timeout:
                     continue  
