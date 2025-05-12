@@ -1,6 +1,5 @@
 import socket
 import threading
-import ssl
 from datetime import datetime
 import argparse
 
@@ -8,151 +7,160 @@ class ProxyServer:
     def __init__(self, host:str, port:int):
         self.host = host
         self.port = port
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.max_pending = 5 # maximum length of the queue for pending connections
+        self.proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.proxy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.max_pending = 5 # max length of the queue for pending connections
+        return
 
     def start(self):
-        self.server.bind((self.host, self.port))
-        self.server.listen(self.max_pending) # listening
-        print(f"proxy server start on {self.host}:{self.port}")
+        self.proxy.bind((self.host, self.port))
+        self.proxy.listen(self.max_pending) # listening
+        print(f"start: proxy server start on {self.host}:{self.port}")
         while True:
-            client_socket, client_address = self.server.accept()
-            print(f'type(client_socket) = {type(client_socket)}')
-            print(f"recv from {client_address}")
-            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
+            client_sock, client_address = self.proxy.accept() # waiting for client
+            print(f"start: request from {client_address} {str(datetime.now())}")
+            # create a thread to handle the client request
+            client_thread = threading.Thread(target=self.handle_client, args=(client_sock,))
             client_thread.daemon = True
             client_thread.start()
+        return
     
-    def handle_client(self, client_socket):
+    def get_http_method(self, req):
+        if not req:
+            print(f'get_http_method: req = {req}')
+            return None
+        first_line = req.split('\n')[0]
+        parts = first_line.split(' ') # e.g., parts=['CONNECT', 'github.githubassets.com:443', 'HTTP/1.1\r']
+        print(f'get_http_method: parts = {parts}')
+        if len(parts) < 3:
+            return None
+        return parts[0]
+
+    def handle_client(self, client_sock):
         try:
-            request = client_socket.recv(8192).decode('utf-8', errors='ignore')
-            if not request:
+            request = client_sock.recv(8192).decode('utf-8', errors='ignore')
+            method = self.get_http_method(request)
+            if method == None:
                 return
-            first_line = request.split('\n')[0]
-            parts = first_line.split(' ')
-            print(f'handle_client: parts={parts}')
-            if len(parts) < 3: # e.g., parts=['CONNECT', 'github.githubassets.com:443', 'HTTP/1.1\r']
-                print(f'parts={parts}')
-                return
-            method, url, http_version = parts
-            if method == 'CONNECT':
-                self.handle_https(client_socket, request)
+            elif method == 'CONNECT':
+                self.handle_https(client_sock, request)
             else:
-                self.handle_http(client_socket, request)
+                self.handle_http(client_sock, request)
         except Exception as e:
             print(f"parse http/https request: {e}")
         finally:
-            client_socket.close()
+            print('close client socket')
+            client_sock.close()
+        return
     
-    def handle_https(self, client_socket, request):
-        try:
-            # get target host:port from CONNECT request
-            first_line = request.split('\n')[0]
+    def get_host_port(self, req, is_https:bool = False):
+        host, port = None, None
+        if is_https:
+            first_line = req.split('\n')[0]
             host_port = first_line.split(' ')[1]
             host, port = host_port.split(':')
             port = int(port)
-            
-            print(f"build HTTPS tunnel to {host}:{port}")
-            
-            # connect target server
-            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server_socket.settimeout(10) # 10 seconds
-            server_socket.connect((host, port))
-            
-            # send a connection established response to the client
-            client_socket.send(b'HTTP/1.1 200 Connection established\r\n\r\n')
-            connection_state = {'alive': True}
-            
-            # enable bidirectional data forwarding
-            client_to_server = threading.Thread(
-                target=self.forward, 
-                args=(client_socket, server_socket, f"client->{host}", connection_state)
-            )
-            server_to_client = threading.Thread(
-                target=self.forward, 
-                args=(server_socket, client_socket, f"{host}->client", connection_state)
-            )
-            
-            client_to_server.daemon = True
-            server_to_client.daemon = True
-            
-            client_to_server.start()
-            server_to_client.start()
-            
-            client_to_server.join()
-            server_to_client.join()
-            
-        except Exception as e:
-            print(f"HTTPS error: {e}")
-        finally:
-            try:
-                client_socket.close()
-            except:
-                pass
-            try:
-                server_socket.close()
-            except:
-                pass
-    
-    def handle_http(self, client_socket, request):
-        try:
-            headers = request.split('\r\n')
-            host = None
+        else:
+            headers = req.split('\r\n')
             for header in headers:
                 if header.lower().startswith('host:'):
                     host = header.split(':')[1].strip()
                     break
-            if not host:
-                return
-            port = 80
+            port = 80 # default http port
             if ':' in host:
                 host, port = host.split(':')
                 port = int(port)
-                
-            # connect the target server
-            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server_socket.settimeout(10)
-            server_socket.connect((host, port))
-            
-            # forward request to the target server
-            server_socket.send(request.encode())
-            
-            # forward response to the client
-            response = server_socket.recv(4096)
-            while response:
-                client_socket.send(response)
-                response = server_socket.recv(4096)
-                
-            server_socket.close()
-        except Exception as e:
-            print(f"HTTP error: {e}")
+        print(f'get_host_port: host = {host}, port = {port}')
+        return host, port
     
-    def forward(self, source, destination, direction, connection_state):
-        """forward data between two sockets"""
+    def create_socket(self, host:str, port:int, timeout:int=10):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout) # 10 seconds
+        sock.connect((host, port)) # 'host' is an IP address or domain name
+        return sock
+    
+    def close_socket(self, sock):
+        try:
+            sock.close()
+        except:
+            pass
+
+    def handle_https(self, client_sock, request):
+        try:
+            host, port = self.get_host_port(request, True)
+            server_sock = self.create_socket(host, port)
+            client_sock.send(b'HTTP/1.1 200 Connection established\r\n\r\n') # proxy -> client
+            connection_state = {'alive': True}
+            
+            direction =  "client -> proxy -> server"
+            thread_a = threading.Thread(target=self.forward, args=(client_sock, server_sock, direction, connection_state))
+
+            direction = "server -> proxy -> client"
+            thread_b = threading.Thread(target=self.forward, args=(server_sock, client_sock, direction, connection_state))
+            
+            thread_a.daemon = True
+            thread_b.daemon = True
+            
+            thread_a.start()
+            thread_b.start()
+
+            thread_a.join()
+            thread_b.join()   
+        except Exception as e:
+            print(f"handle_https: error: {e}")
+        finally:
+            print('handle_https: close client socket')
+            self.close_socket(client_sock)
+            print('handle_https: close server socket')
+            self.close_socket(server_sock)
+        return
+    
+    def handle_http(self, client_sock, request):
+        try:
+            host, port = self.get_host_port(request)
+            if host == None or port == None:
+                print(f'handle_http: host = {host}, port = {port}')
+                return
+
+            server_sock = self.create_socket(host, port)
+            server_sock.send(request.encode()) # proxy -> server
+            response = server_sock.recv(4096) # proxy <- server
+            while response:
+                client_sock.send(response) # proxy -> client
+                response = server_sock.recv(4096) # proxy <- server
+        except Exception as e:
+            print(f"handle_http: error: {e}")
+        finally:
+            print('handle_http: close client socket')
+            self.close_socket(client_sock)
+            print('handle_http: close server socket')
+            self.close_socket(server_sock)
+        return
+    
+    def forward(self, src_sock, dst_sock, direction:str, connection_state:dict):
+        """
+        send data from src_sock to dst_sock
+           proxy <- src_sock
+           proxy -> dst_sock
+        """
         try:
             while connection_state['alive']:
-                source.settimeout(1)  # set a short timeout to check the connection status
+                src_sock.settimeout(1)  # set a short timeout to check connection status
                 try:
-                    data = source.recv(4096)
+                    data = src_sock.recv(4096) # recv data from src_sock
                     if len(data) == 0:
-                        raise Exception("close connection")
-                    destination.send(data)
+                        raise Exception("forward: close connection")
+                    dst_sock.send(data) # send data to dst_sock
                 except socket.timeout:
-                    continue
-                    
+                    continue  
         except Exception as e:
-            print(f"forward data error: ({direction}): {e}")
+            print(f"forward: ({direction}): {e}")
         finally:
             connection_state['alive'] = False
-            try:
-                source.close()
-            except:
-                pass
-            try:
-                destination.close()
-            except:
-                pass
+            print('forward: close both src_sock and dst_sock')
+            self.close_socket(src_sock)
+            self.close_socket(dst_sock)
+        return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='HTTP Proxy Server')
