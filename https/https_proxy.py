@@ -5,8 +5,7 @@ import argparse
 
 class ProxyServer:
     def __init__(self, host:str, port:int):
-        self.host = host
-        self.port = port
+        self.host, self.port = host, port
         self.proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.proxy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.max_pending = 5 # max length of the queue for pending connections
@@ -17,14 +16,15 @@ class ProxyServer:
         self.proxy.listen(self.max_pending) # listening
         print(f"start: proxy server start on {self.host}:{self.port}")
         while True:
-            client_sock, client_address = self.proxy.accept() # waiting for client
+            client_sock, client_address = self.proxy.accept() # waiting for client request
             print(f"start: request from {client_address} {str(datetime.now())}")
-            # create a thread to handle the client request
+            # create thread to handle client request
             client_thread = threading.Thread(target=self.handle_client, args=(client_sock,))
             client_thread.daemon = True
             client_thread.start()
         return
     
+    # get host:port from request
     def get_http_method(self, req):
         if not req:
             print(f'get_http_method: req = {req}')
@@ -80,8 +80,9 @@ class ProxyServer:
     def close_socket(self, sock):
         try:
             sock.close()
-        except:
-            pass
+        except Exception as e:
+            print(f'close socket: {str(e)}')
+        return
 
     def handle_https(self, client_sock, request):
         try:
