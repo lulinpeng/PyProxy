@@ -24,7 +24,7 @@ class ProxyServer:
             client_thread.start()
         return
     
-    # get host:port from request
+    # get HTTP method from request
     def get_http_method(self, req):
         if not req:
             print(f'get_http_method: req = {req}')
@@ -50,7 +50,8 @@ class ProxyServer:
             print(f"handle_client: parse http/https request: {e}")
 
         return
-    
+
+    # get host:port from request
     def get_host_port(self, req, is_https:bool = False):
         host, port = None, None
         if is_https:
