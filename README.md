@@ -1,7 +1,8 @@
-# FileQrcoder
 # INTRODUCTION
 Pyproxy is a proxy written in Python for rapid deployment and secondary development.
 <center><img src="https://github.com/lulinpeng/PyProxy/blob/main/http_proxy.png" alt="http_proxy" width="60%" height="auto"></center>
+
+*https://github.com/lulinpeng/Gallary/blob/main/graphviz/pyproxy-http-proxy-intro.gv*
 
 # QUICK START
 # HTTP
