@@ -25,6 +25,8 @@ python3 http_client.py
 
 # HTTPS
 
+Confirmed working on an **iPhone.** The setup simply requires entering the HTTPS proxy server's ***IP address and port*** in the iPhone's Wi-Fi settings.
+
 ```shell
 export HOST=x.x.x.x
 
